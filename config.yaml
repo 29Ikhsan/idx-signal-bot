@@ -5,10 +5,33 @@
 # GANTI DI SINI kalau sumber data resmi sudah ditentukan (lihat src/data_source.py).
 data_source: yahoo
 
+# Watchlist kurasi: saham likuid (rata-rata transaksi > Rp 40 M/hari per
+# validasi Yahoo Finance) tersebar antar sektor, cocok untuk sinyal
+# swing (butuh tren) dan breakout volume (butuh baseline volume sehat).
 tickers:
+  # Perbankan — paling likuid di IDX, tren cenderung rapi
   - BBCA
+  - BBRI
+  - BMRI
+  - BBNI
+  # Telekomunikasi
   - TLKM
-  # tambah ticker lain di sini (tanpa suffix .JK)
+  # Konsumer & ritel — defensif, swing pullback sering bersih
+  - ICBP
+  - INDF
+  - AMRT
+  # Otomotif & alat berat
+  - ASII
+  - UNTR
+  # Logam & tambang — paling sering memicu breakout volume
+  - ANTM
+  - MDKA
+  - INCO
+  # Energi
+  - ADRO
+  - MEDC
+  - PGAS
+  # tambah/kurangi di sini (tanpa suffix .JK)
 
 swing:
   ma_period: 50
