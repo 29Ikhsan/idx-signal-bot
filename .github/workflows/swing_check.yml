@@ -1,0 +1,29 @@
+# Sinyal A — swing trading, sekali per hari bursa setelah closing.
+# BEI selesai sesi pasca-penutupan 16.15 WIB -> jalan 16.30 WIB = 09.30 UTC.
+name: Swing Signal Check
+
+on:
+  schedule:
+    - cron: "30 9 * * 1-5" # Senin-Jumat 16.30 WIB
+  workflow_dispatch: {} # bisa dipicu manual untuk testing
+
+jobs:
+  swing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run swing signal check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m src.main_swing

@@ -1,0 +1,40 @@
+# Sinyal B — breakout volume, tiap 15 menit selama jam bursa BEI.
+# Jadwal bursa (SK Direksi BEI No. II-A Kep-00003/BEI/04-2025):
+#   Senin-Kamis 09.00-15.49 WIB  = 02.00-08.49 UTC
+#   Jumat       09.00-11.30 WIB  = 02.00-04.30 UTC
+#               14.00-15.49 WIB  = 07.00-08.49 UTC
+# Catatan: cron GitHub Actions bisa telat beberapa menit saat beban tinggi.
+name: Breakout Signal Check
+
+on:
+  schedule:
+    - cron: "*/15 2-8 * * 1-4" # Senin-Kamis 09.00-15.45 WIB
+    - cron: "*/15 2-3 * * 5" # Jumat 09.00-10.45 WIB
+    - cron: "0,15,30 4 * * 5" # Jumat 11.00-11.30 WIB
+    - cron: "*/15 7-8 * * 5" # Jumat 14.00-15.45 WIB
+  workflow_dispatch: {} # bisa dipicu manual untuk testing
+
+concurrency:
+  group: breakout-check
+  cancel-in-progress: false # biarkan run sebelumnya selesai dulu
+
+jobs:
+  breakout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run breakout signal check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m src.main_breakout
