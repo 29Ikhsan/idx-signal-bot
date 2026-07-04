@@ -44,7 +44,8 @@ swing:
   rsi_max: 60
   volume_avg_period: 20
   support_resistance_radius_pct: 5   # radius X persen dari level support/resistance terdekat
-  min_risk_reward: 2.0               # rasio minimal 1:2
+  min_risk_reward: 2.0               # rasio minimal 1:2, dihitung terhadap TP1
+  tp2_risk_multiple: 2.0             # fallback TP2 = entry + 2x risk (kalau tak ada resistance kedua)
 
 breakout:
   volume_threshold: 2.0              # volume hari ini > 2x rata-rata

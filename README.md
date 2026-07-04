@@ -20,7 +20,11 @@ Kedua sinyal jalan independen. Satu ticker bisa memicu A, B, keduanya, atau tida
 3. **Volume** — volume hari sinyal di atas rata-rata 20 hari
 4. **Struktur** — harga dalam radius 5% dari support/resistance terdekat
 5. **Stop loss** — swing low terakhir, harus di bawah entry
-6. **Risk-reward** — target = resistance terdekat di atas entry; rasio minimal 1:2
+6. **Risk-reward** — dihitung terhadap TP1; rasio minimal 1:2
+
+Alert sinyal A menyertakan dua level take profit:
+- **TP1** = resistance terdekat di atas entry (dipakai untuk kriteria risk-reward)
+- **TP2** = resistance berikutnya di atas TP1; kalau tidak ada, fallback `entry + 2x risk` (kelipatan diatur via `tp2_risk_multiple`)
 
 Semua angka di atas adalah default `config.yaml` dan bisa diubah tanpa menyentuh kode.
 

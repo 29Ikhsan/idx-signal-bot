@@ -46,18 +46,21 @@ def detection_time_wib() -> str:
 
 
 def format_swing_message(ticker: str, result: dict) -> str:
-    """Pesan Sinyal A: entry, stop, target, R/R, kriteria, waktu deteksi."""
+    """Pesan Sinyal A: entry, stop, TP1/TP2, R/R, kriteria, waktu deteksi."""
     criteria_lines = "\n".join(
         f"  {'✅' if passed else '❌'} {name}"
         for name, passed in result["criteria"].items()
     )
+    tp2 = result["take_profit_2"]
+    tp2_text = f"{tp2:,.0f}" if tp2 is not None else "-"
     return (
         f"🅰️ <b>SINYAL A — SWING</b>\n"
         f"Ticker: <b>{ticker}</b>\n"
         f"Entry: {result['entry']:,.0f}\n"
         f"Stop loss: {result['stop_loss']:,.0f}\n"
-        f"Target: {result['target']:,.0f}\n"
-        f"Risk-reward: 1:{result['risk_reward']:.2f}\n"
+        f"Take profit 1: {result['take_profit_1']:,.0f}\n"
+        f"Take profit 2: {tp2_text}\n"
+        f"Risk-reward (TP1): 1:{result['risk_reward']:.2f}\n"
         f"Kriteria:\n{criteria_lines}\n"
         f"Terdeteksi: {detection_time_wib()}"
     )

@@ -49,9 +49,22 @@ class TestPassingScenario:
     def test_trade_levels_are_derived_from_structure(self):
         result = check_swing_signal(build_ohlcv(PASSING_CLOSES), BASE_CONFIG)
         assert result["entry"] == 104
-        assert result["stop_loss"] == 99   # swing low pullback
-        assert result["target"] == 111     # resistance puncak sebelumnya
-        assert result["risk_reward"] == pytest.approx(1.4)
+        assert result["stop_loss"] == 99         # swing low pullback
+        assert result["take_profit_1"] == 111    # resistance puncak sebelumnya
+        assert result["risk_reward"] == pytest.approx(1.4)  # dihitung ke TP1
+
+    def test_tp2_falls_back_to_risk_multiple_when_no_second_resistance(self):
+        # Hanya ada satu resistance (111) -> TP2 = entry + 2 x risk = 104 + 10.
+        result = check_swing_signal(build_ohlcv(PASSING_CLOSES), BASE_CONFIG)
+        assert result["take_profit_2"] == pytest.approx(114)
+
+    def test_tp2_uses_next_resistance_when_available(self):
+        # Puncak kedua 120 lalu pullback dalam ke 106: dua resistance di atas
+        # entry -> TP1 = 111 (puncak 110+1), TP2 = 121 (puncak 120+1).
+        closes = PASSING_CLOSES + [108, 114, 120, 116, 112, 108, 105, 106]
+        result = check_swing_signal(build_ohlcv(closes), BASE_CONFIG)
+        assert result["take_profit_1"] == pytest.approx(111)
+        assert result["take_profit_2"] == pytest.approx(121)
 
 
 class TestFailurePerCriterion:
