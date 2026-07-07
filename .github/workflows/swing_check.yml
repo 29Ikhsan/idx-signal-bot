@@ -1,13 +1,12 @@
 # Sinyal A — swing trading, sekali per hari bursa setelah closing.
-# BEI selesai sesi pasca-penutupan 16.15 WIB -> jalan 16.30 WIB = 09.30 UTC.
+# Sesi II BEI berakhir 15.49.59 WIB, harga penutupan final via closing
+# auction ~15.50 -> jalan 15.58 WIB = 08.58 UTC (menit :58 juga relatif
+# sepi di cron GitHub, mengurangi risiko ditunda).
 name: Swing Signal Check
 
-# Catatan: cron GitHub Actions best effort — bisa telat saat beban tinggi.
-# Menit :30 ramai; digeser ke :37 supaya lebih sering tepat waktu. Telat
-# untuk sinyal swing tidak masalah karena dihitung dari data closing.
 on:
   schedule:
-    - cron: "37 9 * * 1-5" # Senin-Jumat 16.37 WIB
+    - cron: "58 8 * * 1-5" # Senin-Jumat 15.58 WIB
   workflow_dispatch: {} # bisa dipicu manual untuk testing
 
 jobs:
