@@ -1,6 +1,19 @@
 """Test penggabungan blok sinyal jadi pesan Telegram."""
 
-from src.alert import build_messages
+from src.alert import build_messages, format_breakout_block
+
+
+class TestFormatBreakoutBlock:
+    def test_includes_levels(self):
+        levels = {"stop_loss": 95.0, "take_profit_1": 110.0, "take_profit_2": 120.0}
+        block = format_breakout_block("TEST", 100.0, 5.3, levels)
+        assert "TEST" in block and "5.3x" in block
+        assert "SL 95" in block and "TP1 110" in block and "TP2 120" in block
+
+    def test_missing_levels_shown_as_dash(self):
+        levels = {"stop_loss": None, "take_profit_1": None, "take_profit_2": None}
+        block = format_breakout_block("TEST", 100.0, 2.1, levels)
+        assert "SL -" in block and "TP1 -" in block and "TP2 -" in block
 
 
 class TestBuildMessages:

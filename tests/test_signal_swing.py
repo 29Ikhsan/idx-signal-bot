@@ -10,7 +10,7 @@ Geometri skenario LOLOS (periode indikator diperkecil agar data ringkas):
 
 import pytest
 
-from src.signal_swing import check_swing_signal
+from src.signal_swing import check_swing_signal, compute_trade_levels
 
 BASE_CONFIG = {
     "ma_period": 5,
@@ -110,3 +110,24 @@ class TestInputValidation:
     def test_raises_when_history_too_short(self):
         with pytest.raises(ValueError):
             check_swing_signal(build_ohlcv([100, 101, 102]), BASE_CONFIG)
+
+
+class TestComputeTradeLevels:
+    """Level trading juga dipakai alert breakout (tanpa 6 kriteria swing)."""
+
+    def test_levels_match_swing_result(self):
+        ohlcv = build_ohlcv(PASSING_CLOSES)
+        levels = compute_trade_levels(ohlcv, tp2_risk_multiple=2.0)
+        assert levels["entry"] == 104
+        assert levels["stop_loss"] == 99
+        assert levels["take_profit_1"] == 111
+        assert levels["take_profit_2"] == pytest.approx(114)
+        assert levels["risk_reward"] == pytest.approx(1.4)
+
+    def test_levels_are_none_when_structure_missing(self):
+        rising = build_ohlcv([float(c) for c in range(100, 117)])
+        levels = compute_trade_levels(rising)
+        assert levels["stop_loss"] is None
+        assert levels["take_profit_1"] is None
+        assert levels["take_profit_2"] is None
+        assert levels["risk_reward"] is None

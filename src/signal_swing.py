@@ -51,40 +51,64 @@ def check_swing_signal(ohlcv: list[dict], config: dict) -> dict:
     ma_value = moving_average(closes, config["ma_period"])
     rsi_value = rsi(closes, config["rsi_period"])
     avg_volume = moving_average(volumes[:-1], config["volume_avg_period"])
-    supports, resistances = find_support_resistance(highs, lows)
-    stop_loss = find_swing_low(lows)
-    take_profit_1 = _nearest_above(resistances, entry)
-    take_profit_2 = _take_profit_2(
-        resistances,
-        entry,
-        stop_loss,
-        take_profit_1,
-        config.get("tp2_risk_multiple", DEFAULT_TP2_RISK_MULTIPLE),
+    levels = compute_trade_levels(
+        ohlcv, config.get("tp2_risk_multiple", DEFAULT_TP2_RISK_MULTIPLE)
     )
-    risk_reward = _risk_reward(entry, stop_loss, take_profit_1)
 
     criteria = {
         "trend_above_ma": entry > ma_value,
         "rsi_in_range": config["rsi_min"] <= rsi_value <= config["rsi_max"],
         "volume_above_average": volumes[-1] > avg_volume,
         "near_support_resistance": _is_near_level(
-            entry, supports + resistances, config["support_resistance_radius_pct"]
+            entry, levels["all_levels"], config["support_resistance_radius_pct"]
         ),
-        "stop_loss_valid": stop_loss is not None and stop_loss < entry,
-        "risk_reward_ok": risk_reward is not None
-        and risk_reward >= config["min_risk_reward"],
+        "stop_loss_valid": levels["stop_loss"] is not None
+        and levels["stop_loss"] < entry,
+        "risk_reward_ok": levels["risk_reward"] is not None
+        and levels["risk_reward"] >= config["min_risk_reward"],
     }
 
     return {
         "passed": all(criteria.values()),
         "criteria": criteria,
         "entry": entry,
+        "stop_loss": levels["stop_loss"],
+        "take_profit_1": levels["take_profit_1"],
+        "take_profit_2": levels["take_profit_2"],
+        "risk_reward": levels["risk_reward"],
+        "ma": ma_value,
+        "rsi": rsi_value,
+    }
+
+
+def compute_trade_levels(
+    ohlcv: list[dict], tp2_risk_multiple: float = DEFAULT_TP2_RISK_MULTIPLE
+) -> dict:
+    """Level trading dari struktur harga — dipakai sinyal A dan B.
+
+    Entry = close bar terakhir, SL = swing low terakhir, TP1 = resistance
+    terdekat di atas entry, TP2 = resistance berikutnya (fallback
+    entry + tp2_risk_multiple x risk). Nilai None kalau struktur tidak
+    menyediakan levelnya.
+    """
+    closes = [bar["close"] for bar in ohlcv]
+    highs = [bar["high"] for bar in ohlcv]
+    lows = [bar["low"] for bar in ohlcv]
+
+    entry = closes[-1]
+    supports, resistances = find_support_resistance(highs, lows)
+    stop_loss = find_swing_low(lows)
+    take_profit_1 = _nearest_above(resistances, entry)
+    take_profit_2 = _take_profit_2(
+        resistances, entry, stop_loss, take_profit_1, tp2_risk_multiple
+    )
+    return {
+        "entry": entry,
         "stop_loss": stop_loss,
         "take_profit_1": take_profit_1,
         "take_profit_2": take_profit_2,
-        "risk_reward": risk_reward,
-        "ma": ma_value,
-        "rsi": rsi_value,
+        "risk_reward": _risk_reward(entry, stop_loss, take_profit_1),
+        "all_levels": supports + resistances,
     }
 
 

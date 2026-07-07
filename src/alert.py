@@ -59,9 +59,18 @@ def format_swing_block(ticker: str, result: dict) -> str:
     )
 
 
-def format_breakout_block(ticker: str, price: float, volume_ratio: float) -> str:
-    """Baris ringkas satu ticker untuk pesan gabungan Sinyal B."""
-    return f"🔊 <b>{ticker}</b> — {price:,.0f} | vol {volume_ratio:.1f}x rata-rata"
+def format_breakout_block(
+    ticker: str, price: float, volume_ratio: float, levels: dict
+) -> str:
+    """Blok ringkas satu ticker untuk pesan gabungan Sinyal B, dengan level."""
+    def fmt(value: float | None) -> str:
+        return f"{value:,.0f}" if value is not None else "-"
+
+    return (
+        f"🔊 <b>{ticker}</b> — {price:,.0f} | vol {volume_ratio:.1f}x rata-rata\n"
+        f"SL {fmt(levels['stop_loss'])} | TP1 {fmt(levels['take_profit_1'])} | "
+        f"TP2 {fmt(levels['take_profit_2'])}"
+    )
 
 
 def build_messages(

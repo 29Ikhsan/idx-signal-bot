@@ -21,9 +21,11 @@ from src.alert import (
 from src.alert_state import filter_new_alerts, load_state, save_state
 from src.data_source import create_data_source
 from src.signal_breakout import check_breakout
+from src.signal_swing import compute_trade_levels
 
-HISTORY_BUFFER_DAYS = 5
+HISTORY_BUFFER_DAYS = 15  # ekstra riwayat agar support/resistance terbaca
 DEFAULT_STATE_PATH = ".state/breakout_alerts.json"
+DEFAULT_MAX_ALERTS = 3
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("breakout")
@@ -65,7 +67,8 @@ def run(config: dict) -> int:
     state_path = os.environ.get("ALERT_STATE_PATH", DEFAULT_STATE_PATH)
 
     logger.info("scan %d ticker (threshold %.1fx)...", len(tickers), threshold)
-    data = source.fetch_ohlcv_bulk(tickers, period + 1 + HISTORY_BUFFER_DAYS)
+    fetch_days = period + 1 + HISTORY_BUFFER_DAYS
+    data = source.fetch_ohlcv_bulk(tickers, fetch_days)
 
     counts = {"quiet": 0, "illiquid": 0, "no_data": 0}
     hits: dict[str, tuple] = {}
@@ -80,25 +83,38 @@ def run(config: dict) -> int:
 
     today = next((data[t][-1]["date"] for t in hits), None)
     state = load_state(state_path)
+    # Semua hit dicatat di state (bukan cuma yang terkirim): yang tidak
+    # masuk top-N hari ini tidak akan dialert lagi, mencegah banjir alert
+    # peringkat bawah di run-run berikutnya.
     new_tickers, next_state = filter_new_alerts(sorted(hits), state, today)
     save_state(state_path, next_state)
 
+    max_alerts = breakout_config.get("max_alerts", DEFAULT_MAX_ALERTS)
+    top = sorted(new_tickers, key=lambda t: hits[t][1], reverse=True)[:max_alerts]
+
     logger.info(
-        "hasil: %d breakout (%d baru), %d sepi, %d illiquid, %d tanpa data",
-        len(hits), len(new_tickers), counts["quiet"], counts["illiquid"], counts["no_data"],
+        "hasil: %d breakout (%d baru, kirim top %d), %d sepi, %d illiquid, %d tanpa data",
+        len(hits), len(new_tickers), len(top),
+        counts["quiet"], counts["illiquid"], counts["no_data"],
     )
-    for ticker in new_tickers:
+    for ticker in top:
         logger.info("%s BREAKOUT: harga %.0f, volume %.1fx", ticker, *hits[ticker])
 
-    if not new_tickers:
+    if not top:
         logger.info("tidak ada breakout baru — tidak kirim pesan")
         return 0
 
     header = (
         f"🅱️ <b>SINYAL B — BREAKOUT VOLUME</b>\n"
-        f"{len(new_tickers)} ticker baru | {detection_time_wib()}"
+        f"Top {len(top)} dari {len(new_tickers)} breakout baru | {detection_time_wib()}"
     )
-    blocks = [format_breakout_block(t, *hits[t]) for t in new_tickers]
+    tp2_multiple = breakout_config.get("tp2_risk_multiple", 2.0)
+    blocks = [
+        format_breakout_block(
+            t, *hits[t], compute_trade_levels(data[t], tp2_multiple)
+        )
+        for t in top
+    ]
     messages = build_messages(header, blocks)
     for message in messages:
         send_telegram_message(message)

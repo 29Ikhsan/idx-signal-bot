@@ -20,6 +20,7 @@ from src.data_source import create_data_source
 from src.signal_swing import check_swing_signal
 
 HISTORY_BUFFER_DAYS = 30
+DEFAULT_MAX_ALERTS = 3
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("swing")
@@ -52,7 +53,7 @@ def run(config: dict) -> int:
     data = source.fetch_ohlcv_bulk(tickers, fetch_days)
 
     counts = {"lolos": 0, "gagal": 0, "illiquid": 0, "no_data": 0}
-    blocks: list[str] = []
+    passing: dict[str, dict] = {}
     for ticker in tickers:
         bars = data.get(ticker)
         if bars is None:
@@ -69,28 +70,35 @@ def run(config: dict) -> int:
 
         if result["passed"]:
             counts = {**counts, "lolos": counts["lolos"] + 1}
-            logger.info(
-                "%s LOLOS: entry %.0f SL %.0f TP1 %.0f R/R 1:%.2f",
-                ticker, result["entry"], result["stop_loss"],
-                result["take_profit_1"], result["risk_reward"],
-            )
-            blocks = blocks + [format_swing_block(ticker, result)]
+            passing = {**passing, ticker: result}
         else:
             counts = {**counts, "gagal": counts["gagal"] + 1}
 
-    logger.info(
-        "hasil: %d lolos, %d gagal kriteria, %d illiquid, %d tanpa data",
-        counts["lolos"], counts["gagal"], counts["illiquid"], counts["no_data"],
-    )
+    # Rangking berdasarkan risk-reward terbaik, kirim top N saja.
+    max_alerts = swing_config.get("max_alerts", DEFAULT_MAX_ALERTS)
+    top = sorted(passing, key=lambda t: passing[t]["risk_reward"], reverse=True)[:max_alerts]
 
-    if not blocks:
+    logger.info(
+        "hasil: %d lolos (kirim top %d), %d gagal kriteria, %d illiquid, %d tanpa data",
+        counts["lolos"], len(top), counts["gagal"], counts["illiquid"], counts["no_data"],
+    )
+    for ticker in top:
+        result = passing[ticker]
+        logger.info(
+            "%s LOLOS: entry %.0f SL %.0f TP1 %.0f R/R 1:%.2f",
+            ticker, result["entry"], result["stop_loss"],
+            result["take_profit_1"], result["risk_reward"],
+        )
+
+    if not top:
         logger.info("tidak ada sinyal swing hari ini — tidak kirim pesan")
         return 0
 
     header = (
         f"🅰️ <b>SINYAL A — SWING</b>\n"
-        f"{len(blocks)} ticker lolos 6 kriteria | {detection_time_wib()}"
+        f"Top {len(top)} dari {counts['lolos']} yang lolos 6 kriteria | {detection_time_wib()}"
     )
+    blocks = [format_swing_block(ticker, passing[ticker]) for ticker in top]
     for message in build_messages(header, blocks):
         send_telegram_message(message)
     logger.info("alert swing terkirim")

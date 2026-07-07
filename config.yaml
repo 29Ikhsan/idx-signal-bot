@@ -943,7 +943,10 @@ swing:
   support_resistance_radius_pct: 5   # radius X persen dari level support/resistance terdekat
   min_risk_reward: 2.0               # rasio minimal 1:2, dihitung terhadap TP1
   tp2_risk_multiple: 2.0             # fallback TP2 = entry + 2x risk (kalau tak ada resistance kedua)
+  max_alerts: 3                      # kirim top N berdasarkan risk-reward terbaik
 
 breakout:
   volume_threshold: 2.0              # volume hari ini > 2x rata-rata
   volume_avg_period: 20
+  tp2_risk_multiple: 2.0             # fallback TP2 utk level di alert breakout
+  max_alerts: 3                      # kirim top N berdasarkan rasio volume tertinggi
