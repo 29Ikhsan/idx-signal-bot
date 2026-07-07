@@ -35,6 +35,21 @@ class DataSource(ABC):
         volume berjalan hari itu.
         """
 
+    def fetch_ohlcv_bulk(self, tickers: list[str], days: int) -> dict[str, list[dict]]:
+        """OHLCV banyak ticker sekaligus: {ticker: bars}.
+
+        Ticker yang gagal diambil TIDAK ada di hasil (bukan raise), supaya
+        satu ticker bermasalah tidak menggagalkan scan ratusan lainnya.
+        Default: loop fetch_ohlcv; adapter bisa override dengan batch API.
+        """
+        result: dict[str, list[dict]] = {}
+        for ticker in tickers:
+            try:
+                result = {**result, ticker: self.fetch_ohlcv(ticker, days)}
+            except Exception:  # noqa: BLE001 — sengaja: lanjut ke ticker lain
+                continue
+        return result
+
 
 class MockDataSource(DataSource):
     """Data sintetis deterministik — HANYA untuk testing/wiring lokal.
@@ -91,17 +106,7 @@ class YahooFinanceDataSource(DataSource):
 
     def fetch_ohlcv(self, ticker: str, days: int) -> list[dict]:
         history = self._download_history(ticker, days)
-        bars = []
-        for index, row in history.iterrows():
-            bars = bars + [{
-                "date": index.date().isoformat(),
-                "open": float(row["Open"]),
-                "high": float(row["High"]),
-                "low": float(row["Low"]),
-                "close": float(row["Close"]),
-                "volume": float(row["Volume"]),
-            }]
-        return bars[-days:]
+        return _frame_to_bars(history)[-days:]
 
     def fetch_latest(self, ticker: str) -> dict:
         bars = self.fetch_ohlcv(ticker, 1)
@@ -111,6 +116,40 @@ class YahooFinanceDataSource(DataSource):
             "close": latest_bar["close"],
             "volume": latest_bar["volume"],
         }
+
+    def fetch_ohlcv_bulk(self, tickers: list[str], days: int) -> dict[str, list[dict]]:
+        """Batch download via yf.download — satu sesi untuk semua ticker.
+
+        Jauh lebih cepat dan aman dari rate limit dibanding request
+        per ticker saat scan ratusan emiten.
+        """
+        import yfinance  # lazy import: test suite tidak butuh dependency ini
+
+        if len(tickers) == 1:
+            return super().fetch_ohlcv_bulk(tickers, days)
+
+        start = date.today() - timedelta(days=days * 2 + 14)
+        symbols = [f"{t}{self.SUFFIX}" for t in tickers]
+        data = yfinance.download(
+            symbols,
+            start=start.isoformat(),
+            interval="1d",
+            group_by="ticker",
+            threads=True,
+            progress=False,
+            auto_adjust=True,
+        )
+
+        result: dict[str, list[dict]] = {}
+        for ticker in tickers:
+            try:
+                frame = data[f"{ticker}{self.SUFFIX}"].dropna(subset=["Close"])
+            except KeyError:
+                continue
+            if frame.empty:
+                continue
+            result = {**result, ticker: _frame_to_bars(frame)[-days:]}
+        return result
 
     def _download_history(self, ticker: str, days: int):
         import yfinance  # lazy import: test suite tidak butuh dependency ini
@@ -133,6 +172,21 @@ def create_data_source(name: str) -> DataSource:
     if name not in registry:
         raise ValueError(f"data_source tidak dikenal: {name!r} (pilihan: {sorted(registry)})")
     return registry[name]()
+
+
+def _frame_to_bars(frame) -> list[dict]:
+    """Konversi DataFrame yfinance (index tanggal, kolom OHLCV) ke list bar."""
+    bars = []
+    for index, row in frame.iterrows():
+        bars = bars + [{
+            "date": index.date().isoformat(),
+            "open": float(row["Open"]),
+            "high": float(row["High"]),
+            "low": float(row["Low"]),
+            "close": float(row["Close"]),
+            "volume": float(row["Volume"]),
+        }]
+    return bars
 
 
 def _last_weekdays(end: date, count: int) -> list[date]:

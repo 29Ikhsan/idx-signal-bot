@@ -45,33 +45,44 @@ def detection_time_wib() -> str:
     return datetime.now(tz=WIB).strftime("%Y-%m-%d %H:%M WIB")
 
 
-def format_swing_message(ticker: str, result: dict) -> str:
-    """Pesan Sinyal A: entry, stop, TP1/TP2, R/R, kriteria, waktu deteksi."""
-    criteria_lines = "\n".join(
-        f"  {'✅' if passed else '❌'} {name}"
-        for name, passed in result["criteria"].items()
-    )
+MESSAGE_CHAR_LIMIT = 3500  # batas aman di bawah limit 4096 Telegram
+
+
+def format_swing_block(ticker: str, result: dict) -> str:
+    """Blok ringkas satu ticker untuk pesan gabungan Sinyal A."""
     tp2 = result["take_profit_2"]
     tp2_text = f"{tp2:,.0f}" if tp2 is not None else "-"
     return (
-        f"🅰️ <b>SINYAL A — SWING</b>\n"
-        f"Ticker: <b>{ticker}</b>\n"
-        f"Entry: {result['entry']:,.0f}\n"
-        f"Stop loss: {result['stop_loss']:,.0f}\n"
-        f"Take profit 1: {result['take_profit_1']:,.0f}\n"
-        f"Take profit 2: {tp2_text}\n"
-        f"Risk-reward (TP1): 1:{result['risk_reward']:.2f}\n"
-        f"Kriteria:\n{criteria_lines}\n"
-        f"Terdeteksi: {detection_time_wib()}"
+        f"📈 <b>{ticker}</b> — entry {result['entry']:,.0f}\n"
+        f"SL {result['stop_loss']:,.0f} | TP1 {result['take_profit_1']:,.0f} | "
+        f"TP2 {tp2_text} | R/R 1:{result['risk_reward']:.2f}"
     )
 
 
-def format_breakout_message(ticker: str, price: float, volume_ratio: float) -> str:
-    """Pesan Sinyal B: harga terakhir, rasio volume, waktu deteksi."""
-    return (
-        f"🅱️ <b>SINYAL B — BREAKOUT VOLUME</b>\n"
-        f"Ticker: <b>{ticker}</b>\n"
-        f"Harga terakhir: {price:,.0f}\n"
-        f"Volume: {volume_ratio:.1f}x rata-rata\n"
-        f"Terdeteksi: {detection_time_wib()}"
-    )
+def format_breakout_block(ticker: str, price: float, volume_ratio: float) -> str:
+    """Baris ringkas satu ticker untuk pesan gabungan Sinyal B."""
+    return f"🔊 <b>{ticker}</b> — {price:,.0f} | vol {volume_ratio:.1f}x rata-rata"
+
+
+def build_messages(
+    header: str, blocks: list[str], char_limit: int = MESSAGE_CHAR_LIMIT
+) -> list[str]:
+    """Gabungkan blok jadi sesedikit mungkin pesan, tiap pesan <= char_limit.
+
+    Semua sinyal satu run masuk pesan gabungan (bukan satu pesan per ticker)
+    supaya scan ratusan emiten tidak membanjiri notifikasi. Tiap pesan
+    lanjutan tetap diawali header agar konteksnya jelas.
+    """
+    if not blocks:
+        return []
+
+    messages: list[str] = []
+    current = header
+    for block in blocks:
+        candidate = f"{current}\n\n{block}"
+        if len(candidate) > char_limit and current != header:
+            messages = messages + [current]
+            current = f"{header}\n\n{block}"
+        else:
+            current = candidate
+    return messages + [current]

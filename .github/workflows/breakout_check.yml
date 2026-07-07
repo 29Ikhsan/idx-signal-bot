@@ -23,7 +23,7 @@ concurrency:
 jobs:
   breakout:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15 # scan ~900 ticker butuh beberapa menit
     steps:
       - uses: actions/checkout@v4
 
@@ -35,8 +35,24 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # State dedup alert dipersist antar-run: ticker yang sudah dialert
+      # hari ini tidak dikirim ulang tiap 15 menit.
+      - name: Restore alert state
+        uses: actions/cache/restore@v4
+        with:
+          path: .state
+          key: breakout-state-${{ github.run_id }}
+          restore-keys: breakout-state-
+
       - name: Run breakout signal check
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python -m src.main_breakout
+
+      - name: Save alert state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .state
+          key: breakout-state-${{ github.run_id }}
