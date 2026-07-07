@@ -3,15 +3,17 @@
 #   Senin-Kamis 09.00-15.49 WIB  = 02.00-08.49 UTC
 #   Jumat       09.00-11.30 WIB  = 02.00-04.30 UTC
 #               14.00-15.49 WIB  = 07.00-08.49 UTC
-# Catatan: cron GitHub Actions bisa telat beberapa menit saat beban tinggi.
+# Catatan: cron GitHub Actions adalah BEST EFFORT — bisa telat/skip saat
+# beban tinggi. Menit 0/15/30/45 paling ramai dipakai jutaan repo, jadi
+# jadwal digeser ke menit 3/18/33/48 supaya lebih sering kebagian slot.
 name: Breakout Signal Check
 
 on:
   schedule:
-    - cron: "*/15 2-8 * * 1-4" # Senin-Kamis 09.00-15.45 WIB
-    - cron: "*/15 2-3 * * 5" # Jumat 09.00-10.45 WIB
-    - cron: "0,15,30 4 * * 5" # Jumat 11.00-11.30 WIB
-    - cron: "*/15 7-8 * * 5" # Jumat 14.00-15.45 WIB
+    - cron: "3,18,33,48 2-8 * * 1-4" # Senin-Kamis 09.03-15.48 WIB
+    - cron: "3,18,33,48 2-3 * * 5" # Jumat 09.03-10.48 WIB
+    - cron: "3,18,30 4 * * 5" # Jumat 11.03-11.30 WIB
+    - cron: "3,18,33,48 7-8 * * 5" # Jumat 14.03-15.48 WIB
   workflow_dispatch: {} # bisa dipicu manual untuk testing
 
 concurrency:

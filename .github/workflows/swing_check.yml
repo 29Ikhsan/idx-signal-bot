@@ -2,9 +2,12 @@
 # BEI selesai sesi pasca-penutupan 16.15 WIB -> jalan 16.30 WIB = 09.30 UTC.
 name: Swing Signal Check
 
+# Catatan: cron GitHub Actions best effort — bisa telat saat beban tinggi.
+# Menit :30 ramai; digeser ke :37 supaya lebih sering tepat waktu. Telat
+# untuk sinyal swing tidak masalah karena dihitung dari data closing.
 on:
   schedule:
-    - cron: "30 9 * * 1-5" # Senin-Jumat 16.30 WIB
+    - cron: "37 9 * * 1-5" # Senin-Jumat 16.37 WIB
   workflow_dispatch: {} # bisa dipicu manual untuk testing
 
 jobs:
